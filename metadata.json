@@ -1,0 +1,5 @@
+{
+  "name": "PrepX - Learning Path Creator",
+  "description": "A web-based application to create, manage, and consume structured learning paths. It features a hierarchical content creation interface, a library for tracking learning paths, and the ability to designate a 'Major Path'.",
+  "requestFramePermissions": []
+}
