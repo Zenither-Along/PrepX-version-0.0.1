@@ -7,20 +7,8 @@ import LearningPathsView from './components/LearningPathsView';
 import ReadOnlyPathView from './components/ReadOnlyPathView';
 import { View } from './types';
 import { MenuIcon, LogoFull } from './components/icons';
+import { useIsMobile } from './hooks/useIsMobile';
 
-const useIsMobile = (breakpoint = 768) => {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < breakpoint);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [breakpoint]);
-
-  return isMobile;
-};
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('library');

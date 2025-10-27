@@ -13,8 +13,9 @@ const CreatePathView: React.FC<CreatePathViewProps> = ({ onPathCreated }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim()) {
-      const newPath = addPath(title.trim());
-      onPathCreated(newPath.id);
+      addPath(title.trim(), (newPath) => {
+        onPathCreated(newPath.id);
+      });
     }
   };
 

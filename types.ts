@@ -54,7 +54,7 @@ export type View = 'create_initial' | 'edit' | 'major' | 'library' | 'view_path'
 export interface PathContextType {
   paths: LearningPath[];
   majorPath: LearningPath | null;
-  addPath: (title: string) => LearningPath;
+  addPath: (title: string, callback: (newPath: LearningPath) => void) => void;
   updatePath: (updatedPath: LearningPath) => void;
   deletePath: (id: string) => void;
   setMajorPath: (id: string) => void;

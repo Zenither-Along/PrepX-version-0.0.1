@@ -1,39 +1,41 @@
-
-import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { LearningPath, PathStatus, PathContextType, ColumnType } from '../types';
 
 export const PathContext = createContext<PathContextType | null>(null);
 
-export const PathProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [paths, setPaths] = useState<LearningPath[]>([]);
-  const [majorPath, setMajorPathState] = useState<LearningPath | null>(null);
-
-  useEffect(() => {
-    try {
-      const storedPaths = localStorage.getItem('learningPaths');
-      if (storedPaths) {
-        const parsedPaths: LearningPath[] = JSON.parse(storedPaths);
-        setPaths(parsedPaths);
-        const currentMajorPath = parsedPaths.find(p => p.isMajor) || null;
-        setMajorPathState(currentMajorPath);
+const getInitialPaths = (): LearningPath[] => {
+  try {
+    const storedPaths = localStorage.getItem('learningPaths');
+    if (storedPaths) {
+      const parsedPaths = JSON.parse(storedPaths);
+      if (Array.isArray(parsedPaths)) {
+        return parsedPaths;
       }
-    // Fix: Added curly braces to the catch block to fix syntax error.
-    } catch (error) {
-      console.error("Failed to load paths from localStorage", error);
     }
-  }, []);
+  } catch (error) {
+    console.error("Failed to load or parse paths from localStorage during initialization. Starting fresh.", error);
+  }
+  return [];
+};
+
+export const PathProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [paths, setPaths] = useState<LearningPath[]>(getInitialPaths);
 
   useEffect(() => {
     try {
       localStorage.setItem('learningPaths', JSON.stringify(paths));
-      const currentMajorPath = paths.find(p => p.isMajor) || null;
-      setMajorPathState(currentMajorPath);
     } catch (error) {
       console.error("Failed to save paths to localStorage", error);
     }
   }, [paths]);
 
-  const addPath = useCallback((title: string): LearningPath => {
+  const majorPath = useMemo(() => {
+    return paths.find(p => p && p.isMajor) || null;
+  }, [paths]);
+
+  const addPath = useCallback((title: string, callback: (newPath: LearningPath) => void) => {
+    const isFirstPath = paths.length === 0;
+    
     const newPath: LearningPath = {
       id: crypto.randomUUID(),
       title,
@@ -48,19 +50,12 @@ export const PathProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }],
       status: PathStatus.Completed,
       createdAt: new Date().toISOString(),
-      isMajor: false, // This will be determined inside setPaths
+      isMajor: isFirstPath,
     };
     
-    setPaths(prevPaths => {
-      const isFirstPath = prevPaths.length === 0;
-      const finalPath = { ...newPath, isMajor: isFirstPath };
-      return [...prevPaths, finalPath];
-    });
-
-    // Note: The returned path won't have the correct `isMajor` status immediately,
-    // but this is okay as the component creating it only needs the ID.
-    return newPath;
-  }, []);
+    setPaths(prevPaths => [...prevPaths, newPath]);
+    callback(newPath);
+  }, [paths]);
 
   const updatePath = useCallback((updatedPath: LearningPath) => {
     setPaths(prevPaths =>
@@ -69,7 +64,19 @@ export const PathProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const deletePath = useCallback((id: string) => {
-    setPaths(prevPaths => prevPaths.filter(p => p.id !== id));
+    setPaths(prevPaths => {
+        const pathToDelete = prevPaths.find(p => p.id === id);
+        const remainingPaths = prevPaths.filter(p => p.id !== id);
+        if (pathToDelete?.isMajor && remainingPaths.length > 0) {
+            const newMajorPathIndex = remainingPaths.findIndex(p => !p.isMajor);
+            if (newMajorPathIndex !== -1) {
+                 remainingPaths[newMajorPathIndex].isMajor = true;
+            } else {
+                 remainingPaths[0].isMajor = true;
+            }
+        }
+        return remainingPaths;
+    });
   }, []);
 
   const setMajorPath = useCallback((id: string) => {
