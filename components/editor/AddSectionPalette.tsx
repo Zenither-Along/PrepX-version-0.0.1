@@ -5,7 +5,8 @@ import { PlusIcon } from '../icons';
 export const ADD_BRANCH_ACTION = 'ADD_BRANCH_ACTION';
 
 export const AddSectionPalette: React.FC<{ onAdd: (type: SectionType | typeof ADD_BRANCH_ACTION) => void }> = ({ onAdd }) => {
-    const sectionTypes = Object.values(SectionType);
+    // FIX: Cast Object.values to SectionType[] to resolve typing issues.
+    const sectionTypes = Object.values(SectionType) as SectionType[];
     return (
         <div className="flex-shrink-0 mt-auto p-2 border-t border-brand-accent bg-brand-secondary">
              <div className="flex flex-wrap gap-2 justify-center">

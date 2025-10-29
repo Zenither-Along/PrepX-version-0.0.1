@@ -31,14 +31,25 @@ const ReadOnlySection: React.FC<{ section: DynamicContentSection }> = ({ section
         case SectionType.SUB_HEADING: return <h3 className="text-xl font-semibold text-gray-700 px-4">{section.content?.text}</h3>;
         case SectionType.PARAGRAPH: return <p className="whitespace-pre-wrap px-4">{section.content?.text}</p>;
         case SectionType.IMAGE: return (
-            <div style={{ width: `${section.content.width || 100}%`, margin: '0 auto' }}>
+            <div style={{ width: `${section.content.width || 100}%`, margin: '0 auto' }} className="p-4 rounded-md">
                 <img src={section.content.src} alt="content" className="w-full h-auto" />
             </div>
         );
         case SectionType.VIDEO: {
             return (
-                <div style={{ width: `${section.content.width || 100}%`, margin: '0 auto' }}>
-                    <VideoThumbnailPlayer url={section.content?.url} />
+                <div style={{ width: `${section.content.width || 100}%`, margin: '0 auto' }} className="p-4 rounded-md">
+                    {section.content.dataUrl ? (
+                        <video
+                            src={section.content.dataUrl}
+                            controls
+                            controlsList="nofullscreen"
+                            className="w-full h-auto rounded-md"
+                        >
+                            Your browser does not support the video tag.
+                        </video>
+                    ) : (
+                        <VideoThumbnailPlayer url={section.content?.url} />
+                    )}
                 </div>
             );
         }
@@ -75,6 +86,28 @@ const ReadOnlySection: React.FC<{ section: DynamicContentSection }> = ({ section
                 <span className="font-medium">{section.content.text}</span>
                 <span className="text-xs text-gray-500 block truncate">{section.content.url}</span>
             </a>;
+        case SectionType.TABLE:
+            const { cells } = section.content;
+            if (!cells || cells.length === 0) return null;
+            return (
+                <div className="px-4">
+                    <div className="overflow-x-auto border border-gray-300 rounded-lg bg-brand-primary">
+                        <table className="w-full text-sm text-left text-brand-text">
+                            <tbody>
+                                {cells.map((row: string[], rowIndex: number) => (
+                                    <tr key={rowIndex} className="border-b border-gray-300 last:border-b-0">
+                                        {row.map((cell: string, cellIndex: number) => (
+                                            <td key={cellIndex} className="p-3 border-r border-gray-300 last:border-r-0">
+                                                {cell}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
         default: return null;
     }
 };

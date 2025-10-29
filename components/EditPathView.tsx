@@ -179,10 +179,11 @@ const EditPathView: React.FC<EditPathViewProps> = ({ pathId, onBack, isMobile })
                 case SectionType.SUB_HEADING: content = { text: 'New Sub-heading' }; break;
                 case SectionType.PARAGRAPH: content = { text: 'New paragraph.' }; break;
                 case SectionType.IMAGE: content = { src: '', width: 100 }; break;
-                case SectionType.VIDEO: content = { url: '', width: 100 }; break;
+                case SectionType.VIDEO: content = { url: '', dataUrl: null, width: 100 }; break;
                 case SectionType.BULLETS: content = { ordered: false, items: ['First item'] }; break;
                 case SectionType.QANDA: content = { question: 'Question?', answer: 'Answer.', isCollapsed: false }; break;
                 case SectionType.LINK: content = { text: 'Link Text', url: 'https://' }; break;
+                case SectionType.TABLE: content = { cells: [['', ''], ['', '']] }; break;
                 case SectionType.FLOATING: content = { text: 'Floating note', x: 20, y: 20, width: 200, height: 100 }; break;
             }
             col.sections.push({ id: crypto.randomUUID(), type, content });
@@ -248,7 +249,7 @@ const EditPathView: React.FC<EditPathViewProps> = ({ pathId, onBack, isMobile })
             const newWidth = startWidth + moveEvent.clientX - startX;
             commitChange(p => {
                 const col = p.columns.find(c => c.id === columnId);
-                if (col) col.width = Math.max(240, newWidth);
+                if (col) col.width = Math.max(120, newWidth);
             });
         };
         const stopDrag = () => {
@@ -450,8 +451,12 @@ const EditPathView: React.FC<EditPathViewProps> = ({ pathId, onBack, isMobile })
                     </button>
                 </div>
             </header>
-            <main className="flex-grow flex items-start overflow-auto no-scrollbar">
-                {isMobile ? renderMobileView() : renderDesktopView()}
+            <main className="flex-grow flex flex-col min-h-0">
+                <div className="flex-grow relative">
+                    <div className="absolute inset-0 flex items-start overflow-x-auto no-scrollbar">
+                        {isMobile ? renderMobileView() : renderDesktopView()}
+                    </div>
+                </div>
             </main>
             
             {columnToDelete && (

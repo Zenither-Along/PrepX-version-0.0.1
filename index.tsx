@@ -1,8 +1,8 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { PathProvider } from './context/PathContext';
+import { AuthProvider } from './context/AuthContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,8 +12,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <PathProvider>
-      <App />
-    </PathProvider>
+    <AuthProvider>
+      <PathProvider>
+        <App />
+      </PathProvider>
+    </AuthProvider>
   </React.StrictMode>
 );

@@ -1,6 +1,4 @@
-export enum PathStatus {
-  Completed = 'Completely built',
-}
+export type View = 'library' | 'major' | 'create_initial' | 'edit' | 'view_path' | 'profile';
 
 export enum ColumnType {
   BRANCH = 'BRANCH',
@@ -15,19 +13,20 @@ export enum SectionType {
   VIDEO = 'VIDEO',
   BULLETS = 'BULLETS',
   QANDA = 'QANDA',
-  FLOATING = 'FLOATING',
   LINK = 'LINK',
-}
-
-export interface DynamicContentSection {
-  id: string;
-  type: SectionType;
-  content: any; 
+  TABLE = 'TABLE',
+  FLOATING = 'FLOATING',
 }
 
 export interface PathItem {
   id: string;
   title: string;
+}
+
+export interface DynamicContentSection {
+  id: string;
+  type: SectionType;
+  content: any;
 }
 
 export interface PathColumn {
@@ -44,19 +43,33 @@ export interface LearningPath {
   id: string;
   title: string;
   columns: PathColumn[];
-  status: PathStatus;
   createdAt: string;
-  isMajor: boolean;
+  isMajor?: boolean;
 }
 
-export type View = 'create_initial' | 'edit' | 'major' | 'library' | 'view_path';
+export interface User {
+  id: number | string;
+  username: string;
+}
+
+export interface AuthContextType {
+  currentUser: User | null;
+  token: string | null;
+  isLoading: boolean;
+  login: (username: string, password: string) => Promise<{ success: boolean; message: string; }>;
+  register: (username: string, password: string) => Promise<{ success: boolean; message: string; }>;
+  logout: () => void;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; message: string; }>;
+}
 
 export interface PathContextType {
   paths: LearningPath[];
   majorPath: LearningPath | null;
+  isLoading: boolean;
+  error: string | null;
   addPath: (title: string, callback: (newPath: LearningPath) => void) => void;
+  getPathById: (id: string) => LearningPath | undefined;
   updatePath: (updatedPath: LearningPath) => void;
   deletePath: (id: string) => void;
   setMajorPath: (id: string) => void;
-  getPathById: (id: string) => LearningPath | undefined;
 }

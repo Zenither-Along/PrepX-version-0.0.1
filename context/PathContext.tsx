@@ -1,101 +1,150 @@
-import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
-import { LearningPath, PathStatus, PathContextType, ColumnType } from '../types';
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { LearningPath, PathContextType, ColumnType } from '../types';
+import { useAuth } from '../hooks/useAuth';
+import * as idb from './idb';
 
-export const PathContext = createContext<PathContextType | null>(null);
+export const PathContext = createContext<PathContextType | undefined>(undefined);
 
-const getInitialPaths = (): LearningPath[] => {
-  try {
-    const storedPaths = localStorage.getItem('learningPaths');
-    if (storedPaths) {
-      const parsedPaths = JSON.parse(storedPaths);
-      if (Array.isArray(parsedPaths)) {
-        return parsedPaths;
-      }
-    }
-  } catch (error) {
-    console.error("Failed to load or parse paths from localStorage during initialization. Starting fresh.", error);
-  }
-  return [];
-};
+interface PathProviderProps {
+  children: ReactNode;
+}
 
-export const PathProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [paths, setPaths] = useState<LearningPath[]>(getInitialPaths);
+export const PathProvider: React.FC<PathProviderProps> = ({ children }) => {
+  const { currentUser } = useAuth();
+  const [paths, setPaths] = useState<LearningPath[]>([]);
+  const [majorPath, setMajorPath] = useState<LearningPath | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('learningPaths', JSON.stringify(paths));
-    } catch (error) {
-      console.error("Failed to save paths to localStorage", error);
-    }
-  }, [paths]);
-
-  const majorPath = useMemo(() => {
-    return paths.find(p => p && p.isMajor) || null;
-  }, [paths]);
-
-  const addPath = useCallback((title: string, callback: (newPath: LearningPath) => void) => {
-    const isFirstPath = paths.length === 0;
+    const loadData = async () => {
+      setIsLoading(true);
+      setError(null);
+      // NOTE: This implementation of IndexedDB is not user-scoped. 
+      // For this app, we'll assume a single user context.
+      if (currentUser) {
+        try {
+          const userPaths = await idb.getAllPaths();
+          setPaths(userPaths);
+          setMajorPath(userPaths.find(p => p.isMajor) || null);
+        } catch (e) {
+          console.error("Failed to load paths from IndexedDB", e);
+          setError("Could not load your learning paths. Your browser may not support the necessary storage APIs.");
+        }
+      } else {
+        setPaths([]);
+        setMajorPath(null);
+      }
+      setIsLoading(false);
+    };
     
+    loadData();
+  }, [currentUser]);
+
+  const addPath = async (title: string, callback: (newPath: LearningPath) => void) => {
+    const isFirstPath = paths.length === 0;
     const newPath: LearningPath = {
       id: crypto.randomUUID(),
       title,
+      isMajor: isFirstPath,
+      createdAt: new Date().toISOString(),
       columns: [{
         id: crypto.randomUUID(),
-        title: 'Phase',
+        title,
         type: ColumnType.BRANCH,
         parentItemId: null,
         width: 320,
         items: [],
         sections: []
-      }],
-      status: PathStatus.Completed,
-      createdAt: new Date().toISOString(),
-      isMajor: isFirstPath,
+      }]
     };
-    
-    setPaths(prevPaths => [...prevPaths, newPath]);
-    callback(newPath);
-  }, [paths]);
+    try {
+      await idb.putPath(newPath);
+      const newPaths = [newPath, ...paths];
+      setPaths(newPaths);
+      if (newPath.isMajor) {
+        setMajorPath(newPath);
+      }
+      callback(newPath);
+    } catch(e) {
+        console.error("Failed to save path", e);
+        setError("Could not save your new path. The database may be unavailable.");
+    }
+  };
 
-  const updatePath = useCallback((updatedPath: LearningPath) => {
-    setPaths(prevPaths =>
-      prevPaths.map(p => (p.id === updatedPath.id ? updatedPath : p))
-    );
-  }, []);
-
-  const deletePath = useCallback((id: string) => {
-    setPaths(prevPaths => {
-        const pathToDelete = prevPaths.find(p => p.id === id);
-        const remainingPaths = prevPaths.filter(p => p.id !== id);
-        if (pathToDelete?.isMajor && remainingPaths.length > 0) {
-            const newMajorPathIndex = remainingPaths.findIndex(p => !p.isMajor);
-            if (newMajorPathIndex !== -1) {
-                 remainingPaths[newMajorPathIndex].isMajor = true;
-            } else {
-                 remainingPaths[0].isMajor = true;
-            }
-        }
-        return remainingPaths;
-    });
-  }, []);
-
-  const setMajorPath = useCallback((id: string) => {
-    setPaths(prevPaths =>
-      prevPaths.map(p => ({
-        ...p,
-        isMajor: p.id === id,
-      }))
-    );
-  }, []);
-  
-  const getPathById = useCallback((id: string): LearningPath | undefined => {
+  const getPathById = (id: string) => {
     return paths.find(p => p.id === id);
-  }, [paths]);
+  };
 
+  const updatePath = async (updatedPath: LearningPath) => {
+    try {
+      await idb.putPath(updatedPath);
+      const newPaths = paths.map(p => p.id === updatedPath.id ? updatedPath : p);
+      setPaths(newPaths);
+      if (updatedPath.isMajor) {
+        setMajorPath(updatedPath);
+      } else if (majorPath?.id === updatedPath.id && !updatedPath.isMajor) {
+        setMajorPath(null);
+      }
+    } catch (e) {
+      console.error("Failed to update path", e);
+      setError("Could not save your changes. The database may be unavailable.");
+    }
+  };
 
-  return (
-    <PathContext.Provider value={{ paths, majorPath, addPath, updatePath, deletePath, setMajorPath, getPathById }}>
-      {children}
-    </PathContext.Provider>
-  );
+  const deletePath = async (id: string) => {
+    try {
+      await idb.deletePathDB(id);
+      const newPaths = paths.filter(p => p.id !== id);
+      setPaths(newPaths);
+      if (majorPath?.id === id) {
+         const nextMajor = newPaths.find(p => p.isMajor) || null;
+         setMajorPath(nextMajor || null);
+      }
+    } catch (e) {
+      console.error("Failed to delete path", e);
+      setError("Could not delete the path. The database may be unavailable.");
+    }
+  };
+
+  const handleSetMajorPath = async (id: string) => {
+    const newMajorPath = paths.find(p => p.id === id);
+    if (!newMajorPath) return;
+
+    try {
+        const updates: Promise<LearningPath>[] = [];
+        const oldMajorPath = paths.find(p => p.isMajor);
+        if (oldMajorPath && oldMajorPath.id !== id) {
+            updates.push(idb.putPath({ ...oldMajorPath, isMajor: false }));
+        }
+        updates.push(idb.putPath({ ...newMajorPath, isMajor: true }));
+
+        await Promise.all(updates);
+
+        const newPaths = paths.map(p => ({
+            ...p,
+            isMajor: p.id === id
+        }));
+        setPaths(newPaths);
+        setMajorPath(newPaths.find(p => p.isMajor) || null);
+
+    } catch (e) {
+      console.error("Failed to set major path", e);
+      setError("Could not update the major path. The database may be unavailable.");
+    }
+  };
+
+  const value: PathContextType = {
+    paths,
+    majorPath,
+    isLoading,
+    error,
+    addPath,
+    getPathById,
+    updatePath,
+    deletePath,
+    setMajorPath: handleSetMajorPath
+  };
+
+  return <PathContext.Provider value={value}>{children}</PathContext.Provider>;
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { GoogleGenAI } from '@google/genai';
-import { SparklesIcon } from '../icons';
+import { GoogleGenAI } from '@google/genai';
+import { SendIcon } from '../icons';
 
 interface Message {
     role: 'user' | 'model';
@@ -12,7 +12,9 @@ export const AiAssistantColumn: React.FC<{ context: string }> = ({ context }) =>
     const [userInput, setUserInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showSuggestions, setShowSuggestions] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     
     const initialGreeting: Message = { role: 'model', content: "Hello! I'm your AI assistant for this topic. How can I help you? You can ask me to summarize, explain a concept, or create practice questions." };
     const messagesForDisplay = [initialGreeting, ...history];
@@ -20,6 +22,13 @@ export const AiAssistantColumn: React.FC<{ context: string }> = ({ context }) =>
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messagesForDisplay, isLoading]);
+
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        }
+    }, [userInput]);
 
     const handleSendMessage = async (messageText: string) => {
         if (!messageText.trim() || isLoading) return;
@@ -31,6 +40,7 @@ export const AiAssistantColumn: React.FC<{ context: string }> = ({ context }) =>
         setUserInput('');
         setIsLoading(true);
         setError(null);
+        setShowSuggestions(true); // Re-show suggestions after sending
         
         const historyForApi = currentHistory.map(msg => ({
             role: msg.role,
@@ -38,8 +48,7 @@ export const AiAssistantColumn: React.FC<{ context: string }> = ({ context }) =>
         }));
 
         try {
-            const { GoogleGenAI } = await import('@google/genai');
-            const ai = new GoogleGenAI({});
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
@@ -69,7 +78,7 @@ export const AiAssistantColumn: React.FC<{ context: string }> = ({ context }) =>
 
     return (
         <div className="h-full w-full flex flex-col bg-brand-primary">
-            <div className="flex-grow p-4 space-y-4 overflow-y-auto">
+            <div className="flex-grow p-4 space-y-4 overflow-y-auto no-scrollbar">
                 {messagesForDisplay.map((msg, index) => (
                     <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-md lg:max-w-lg px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-brand-text text-brand-primary rounded-br-none' : 'bg-brand-secondary text-brand-text rounded-bl-none'}`}>
@@ -93,22 +102,35 @@ export const AiAssistantColumn: React.FC<{ context: string }> = ({ context }) =>
             </div>
 
             <div className="flex-shrink-0 p-2 border-t border-brand-accent bg-brand-primary">
-                 <div className="flex gap-2 justify-center mb-2 px-2">
-                    {suggestedPrompts.map(prompt => (
-                        <button 
-                            key={prompt}
-                            onClick={() => handleSendMessage(prompt)}
-                            disabled={isLoading}
-                            className="px-3 py-1 text-xs bg-brand-secondary border border-gray-300 rounded-full hover:bg-brand-accent disabled:opacity-50"
-                        >
-                            {prompt}
-                        </button>
-                    ))}
-                </div>
-                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(userInput); }} className="flex items-center gap-2">
+                 {showSuggestions && (
+                    <div className="flex gap-2 justify-center mb-2 px-2">
+                        {suggestedPrompts.map(prompt => (
+                            <button 
+                                key={prompt}
+                                onClick={() => handleSendMessage(prompt)}
+                                disabled={isLoading}
+                                className="px-3 py-1 text-xs bg-brand-secondary border border-gray-300 rounded-full hover:bg-brand-accent disabled:opacity-50"
+                            >
+                                {prompt}
+                            </button>
+                        ))}
+                    </div>
+                 )}
+                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(userInput); }} className="flex items-end gap-2 p-2">
                     <textarea
+                        ref={textareaRef}
                         value={userInput}
-                        onChange={(e) => setUserInput(e.target.value)}
+                        onChange={(e) => {
+                            setUserInput(e.target.value);
+                            if (e.target.value) {
+                                setShowSuggestions(false);
+                            }
+                        }}
+                        onBlur={() => {
+                            if (!userInput.trim()) {
+                                setShowSuggestions(true);
+                            }
+                        }}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault();
@@ -116,12 +138,17 @@ export const AiAssistantColumn: React.FC<{ context: string }> = ({ context }) =>
                             }
                         }}
                         placeholder="Ask a question..."
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 outline-none resize-none"
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 outline-none resize-none max-h-32 overflow-y-auto no-scrollbar"
                         rows={1}
                         disabled={isLoading}
                     />
-                    <button type="submit" disabled={isLoading || !userInput.trim()} className="p-2 bg-brand-text text-brand-primary rounded-lg disabled:bg-gray-400">
-                        Send
+                    <button 
+                        type="submit" 
+                        disabled={isLoading || !userInput.trim()} 
+                        className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-brand-text text-brand-primary rounded-full disabled:bg-gray-400 transition-colors"
+                        aria-label="Send message"
+                    >
+                        <SendIcon className="w-5 h-5" />
                     </button>
                 </form>
             </div>

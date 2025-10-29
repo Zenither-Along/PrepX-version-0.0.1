@@ -30,10 +30,7 @@ export const EditableColumn: React.FC<EditableColumnProps> = (props) => {
     const dynamicColumnRef = useRef<HTMLDivElement>(null);
 
     const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
-    const [draggableSectionId, setDraggableSectionId] = useState<string | null>(null);
-    const longPressTimerRef = useRef<number | null>(null);
-    const isScrollingRef = useRef(false);
-
+    const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
 
     const handleDragStart = (e: React.DragEvent, sectionId: string) => {
         setDraggedSectionId(sectionId);
@@ -60,36 +57,8 @@ export const EditableColumn: React.FC<EditableColumnProps> = (props) => {
         setDraggedSectionId(null);
     };
 
-    const handleTouchStart = (sectionId: string) => {
-        isScrollingRef.current = false;
-        longPressTimerRef.current = window.setTimeout(() => {
-            if (!isScrollingRef.current) {
-                setDraggableSectionId(sectionId);
-                if (navigator.vibrate) {
-                    navigator.vibrate(50);
-                }
-            }
-        }, 500);
-    };
-
-    const handleTouchMove = () => {
-        isScrollingRef.current = true;
-        if (longPressTimerRef.current) {
-            clearTimeout(longPressTimerRef.current);
-            longPressTimerRef.current = null;
-        }
-    };
-
-    const handleTouchEnd = () => {
-        if (longPressTimerRef.current) {
-            clearTimeout(longPressTimerRef.current);
-            longPressTimerRef.current = null;
-        }
-        setTimeout(() => {
-            if (draggedSectionId === null) {
-               setDraggableSectionId(null);
-            }
-        }, 100);
+    const handleBackgroundClick = () => {
+        setSelectedSectionId(null);
     };
     
     return (
@@ -110,7 +79,7 @@ export const EditableColumn: React.FC<EditableColumnProps> = (props) => {
                 </div>
             )}
             
-            <div className="flex-grow overflow-y-auto no-scrollbar relative" ref={dynamicColumnRef}>
+            <div className="flex-grow overflow-y-auto no-scrollbar relative" ref={dynamicColumnRef} onClick={handleBackgroundClick}>
                 {column.type === ColumnType.BRANCH ? (
                     <div className="space-y-2 py-4">
                         {column.items.map(item => (
@@ -133,31 +102,24 @@ export const EditableColumn: React.FC<EditableColumnProps> = (props) => {
                     </div>
                 ) : (
                     <>
-                        <div className="pb-4">
+                        <div className="py-2 space-y-1">
                            {column.sections.filter(s => s.type !== SectionType.FLOATING).map(section => (
                                 <div 
                                     key={section.id}
-                                    draggable={!isMobile || draggableSectionId === section.id}
-                                    onDragStart={(e) => handleDragStart(e, section.id)}
                                     onDragOver={handleDragOver}
-                                    onDrop={(e) => {
-                                        handleDrop(e, section.id);
-                                        if (isMobile) setDraggableSectionId(null);
-                                    }}
-                                    onDragEnd={() => {
-                                        if (isMobile) setDraggableSectionId(null);
-                                        setDraggedSectionId(null);
-                                    }}
-                                    onTouchStart={isMobile ? () => handleTouchStart(section.id) : undefined}
-                                    onTouchMove={isMobile ? handleTouchMove : undefined}
-                                    onTouchEnd={isMobile ? handleTouchEnd : undefined}
-                                    className="cursor-move"
+                                    onDrop={(e) => handleDrop(e, section.id)}
                                 >
                                     <SectionEditor 
                                         section={section} 
                                         updateSectionContent={(id, content) => updateSectionContent(column.id, id, content)}
                                         deleteSection={id => deleteSection(column.id, id)}
-                                        isDragging={draggedSectionId === section.id || (isMobile && draggableSectionId === section.id)}
+                                        isSelected={selectedSectionId === section.id}
+                                        onSelect={(e, id) => {
+                                            e.stopPropagation();
+                                            setSelectedSectionId(id);
+                                        }}
+                                        onDragStart={handleDragStart}
+                                        isMobile={isMobile}
                                     />
                                 </div>
                             ))}

@@ -41,8 +41,12 @@ const ReadOnlyPathView: React.FC<ReadOnlyPathViewProps> = ({ pathId, onEdit, onB
                 </button>
             </div>
         </header>
-        <main className="flex-grow flex items-start overflow-auto no-scrollbar">
-            <PathViewer path={path} isMobile={isMobile} />
+        <main className="flex-grow flex flex-col min-h-0">
+            <div className="flex-grow relative">
+                <div className="absolute inset-0 flex items-start overflow-x-auto no-scrollbar">
+                    <PathViewer path={path} isMobile={isMobile} />
+                </div>
+            </div>
         </main>
     </div>
   );

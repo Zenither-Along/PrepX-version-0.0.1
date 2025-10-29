@@ -1,21 +1,23 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ResizeGripIcon } from '../icons';
+import { ResizeGripIcon, UploadIcon, LinkIcon } from '../icons';
 
 export const EditableVideoSection: React.FC<{
-    url: string | undefined;
-    onUrlChange: (newUrl: string) => void;
-    width: number | undefined;
-    onWidthChange: (newWidth: number) => void;
-}> = ({ url, onUrlChange, width, onWidthChange }) => {
+    content: any;
+    onContentChange: (newContent: any) => void;
+    isSelected: boolean;
+}> = ({ content, onContentChange, isSelected }) => {
+    const [mode, setMode] = useState<'url' | 'upload'>(content?.dataUrl ? 'upload' : 'url');
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const debounceTimeoutRef = useRef<number | null>(null);
     const [isResizing, setIsResizing] = useState(false);
     const videoRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const startVideoResize = useCallback((e: React.MouseEvent | React.TouchEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsResizing(true);
         const startX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const videoNode = videoRef.current;
@@ -28,7 +30,7 @@ export const EditableVideoSection: React.FC<{
             const currentX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
             const newWidth = startWidth + (currentX - startX);
             const newWidthPercent = Math.max(20, Math.min((newWidth / parentWidth) * 100, 100));
-            onWidthChange(newWidthPercent);
+            onContentChange({ width: newWidthPercent });
         };
         const stopDrag = () => {
             setIsResizing(false);
@@ -42,7 +44,7 @@ export const EditableVideoSection: React.FC<{
         document.addEventListener('mouseup', stopDrag);
         document.addEventListener('touchmove', doDrag as EventListener);
         document.addEventListener('touchend', stopDrag);
-    }, [onWidthChange]);
+    }, [onContentChange]);
 
 
     const fetchThumbnail = async (videoUrl: string) => {
@@ -56,7 +58,6 @@ export const EditableVideoSection: React.FC<{
         setIsLoading(true);
         setError(null);
 
-        // YouTube
         let match = videoUrl.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
         if (match && match[1]) {
             setThumbnailUrl(`https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`);
@@ -64,7 +65,6 @@ export const EditableVideoSection: React.FC<{
             return;
         }
 
-        // Vimeo
         match = videoUrl.match(/(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(?:video\/)?(\d+)/);
         if (match && match[1]) {
             try {
@@ -87,45 +87,86 @@ export const EditableVideoSection: React.FC<{
         setIsLoading(false);
     };
 
-    useEffect(() => {
-        if (debounceTimeoutRef.current) {
-            clearTimeout(debounceTimeoutRef.current);
+    const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                if (event.target?.result) {
+                    onContentChange({ dataUrl: event.target.result as string, url: '' });
+                }
+            };
+            reader.readAsDataURL(file);
         }
-        debounceTimeoutRef.current = window.setTimeout(() => {
-            fetchThumbnail(url || '');
-        }, 500);
+    };
+    
+    const handleUrlChange = (newUrl: string) => {
+        onContentChange({ url: newUrl, dataUrl: null });
+    };
 
-        return () => {
-            if (debounceTimeoutRef.current) {
-                clearTimeout(debounceTimeoutRef.current);
-            }
-        };
-    }, [url]);
+    useEffect(() => {
+        if (mode === 'url') {
+            if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+            debounceTimeoutRef.current = window.setTimeout(() => fetchThumbnail(content?.url || ''), 500);
+            return () => { if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current) };
+        }
+    }, [content?.url, mode]);
+    
+    const hasVideo = content?.dataUrl || (content?.url && thumbnailUrl);
 
     return (
-        <div>
-            <input 
-                type="text" 
-                value={url || ''} 
-                onChange={e => onUrlChange(e.target.value)} 
-                placeholder="Video URL (YouTube, Vimeo)" 
-                className="w-full p-2 border border-gray-300 rounded-md bg-brand-primary mb-2" 
-            />
+        <div className="space-y-2">
+            <div className="flex border border-gray-300 rounded-lg p-1 max-w-min bg-brand-secondary" onClick={e => e.stopPropagation()}>
+                <button onClick={() => setMode('url')} className={`flex items-center gap-1.5 px-3 py-1 text-sm rounded-md transition-colors ${mode === 'url' ? 'bg-brand-primary shadow-sm' : 'text-gray-600'}`}>
+                    <LinkIcon className="w-4 h-4" /> URL
+                </button>
+                <button onClick={() => setMode('upload')} className={`flex items-center gap-1.5 px-3 py-1 text-sm rounded-md transition-colors ${mode === 'upload' ? 'bg-brand-primary shadow-sm' : 'text-gray-600'}`}>
+                    <UploadIcon className="w-4 h-4" /> Upload
+                </button>
+            </div>
+            
+            {mode === 'url' ? (
+                 <input 
+                    type="text" 
+                    value={content?.url || ''} 
+                    onChange={e => handleUrlChange(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    placeholder="Video URL (YouTube, Vimeo)" 
+                    className="w-full p-2 border border-gray-300 rounded-md bg-brand-primary" 
+                />
+            ) : (
+                <div className="w-full" onClick={e => e.stopPropagation()}>
+                    <input type="file" accept="video/*" ref={fileInputRef} onChange={handleVideoUpload} className="hidden" />
+                    <button onClick={() => fileInputRef.current?.click()} className="w-full p-2 border border-dashed border-gray-400 rounded-md bg-brand-primary text-center text-gray-600 hover:bg-brand-secondary">
+                        {content?.dataUrl ? 'Change Video' : 'Select Video File'}
+                    </button>
+                </div>
+            )}
+            
             {isLoading && <div className="w-full aspect-video bg-gray-200 animate-pulse rounded-md" />}
-            {error && <p className="text-sm text-red-600 px-1">{error}</p>}
-            {thumbnailUrl && !isLoading && (
-                 <div ref={videoRef} className="relative inline-block" style={{ width: `${width || 100}%` }}>
-                    <div className={`relative mt-2 transition-shadow ${isResizing ? 'shadow-2xl ring-2 ring-blue-500' : ''}`}>
-                        <img src={thumbnailUrl} alt="Video Thumbnail" className="w-full aspect-video object-cover rounded-md" />
+            {error && mode === 'url' && <p className="text-sm text-red-600 px-1">{error}</p>}
+            
+            {hasVideo && !isLoading && (
+                <div className="p-4 rounded-md mt-2">
+                    <div ref={videoRef} className="relative inline-block" style={{ width: `${content?.width || 100}%` }}>
+                        <div className={`relative transition-shadow ${isResizing ? 'shadow-2xl ring-2 ring-blue-500' : ''}`} onClick={e => e.stopPropagation()}>
+                            {content.dataUrl ? (
+                                <video src={content.dataUrl} controls controlsList="nofullscreen" className="w-full aspect-video object-cover rounded-md bg-black" />
+                            ) : (
+                                <img src={thumbnailUrl!} alt="Video Thumbnail" className="w-full aspect-video object-cover rounded-md" />
+                            )}
+                        </div>
+                        {isSelected && (
+                             <div
+                                onMouseDown={startVideoResize}
+                                onTouchStart={startVideoResize}
+                                className="absolute -bottom-3 -right-3 w-6 h-6 bg-white rounded-full border-2 border-blue-500 cursor-nwse-resize flex items-center justify-center touch-none"
+                            >
+                                <ResizeGripIcon className="w-4 h-4 text-blue-600" />
+                            </div>
+                        )}
                     </div>
-                    <div
-                        onMouseDown={startVideoResize}
-                        onTouchStart={startVideoResize}
-                        className="absolute -bottom-3 -right-3 w-6 h-6 bg-white rounded-full border-2 border-blue-500 cursor-nwse-resize flex items-center justify-center touch-none"
-                    >
-                        <ResizeGripIcon className="w-4 h-4 text-blue-600" />
-                    </div>
-                 </div>
+                </div>
             )}
         </div>
     );

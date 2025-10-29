@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ArrowLeftIcon, SparklesIcon } from '../icons';
 import { LearningPath, PathColumn, ColumnType, SectionType } from '../../types';
 import { BranchNavigation } from './BranchNavigation';
@@ -27,7 +27,7 @@ const extractTextFromColumn = (column: PathColumn): string => {
 };
 
 
-export const PathViewer: React.FC<{ path: LearningPath; isMobile: boolean }> = ({ path, isMobile }) => {
+export const PathViewer: React.FC<{ path: LearningPath; isMobile: boolean; }> = ({ path, isMobile }) => {
     const [activeItemIds, setActiveItemIds] = useState<Record<string, string | null>>({});
     const [aiParentColumn, setAiParentColumn] = useState<PathColumn | null>(null);
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() =>
@@ -41,7 +41,7 @@ export const PathViewer: React.FC<{ path: LearningPath; isMobile: boolean }> = (
         
         const doDrag = (moveEvent: MouseEvent) => {
             const newWidth = startWidth + moveEvent.clientX - startX;
-            setColumnWidths(prev => ({ ...prev, [columnId]: Math.max(240, newWidth) }));
+            setColumnWidths(prev => ({ ...prev, [columnId]: Math.max(120, newWidth) }));
         };
         const stopDrag = () => {
             document.removeEventListener('mousemove', doDrag);

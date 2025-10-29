@@ -5,35 +5,33 @@ import EditPathView from './components/EditPathView';
 import MajorPathView from './components/MajorPathView';
 import LearningPathsView from './components/LearningPathsView';
 import ReadOnlyPathView from './components/ReadOnlyPathView';
+import AuthView from './components/AuthView';
+import ProfileView from './components/ProfileView';
 import { View } from './types';
 import { MenuIcon, LogoFull } from './components/icons';
 import { useIsMobile } from './hooks/useIsMobile';
+import { useAuth } from './hooks/useAuth';
 
+const MIN_SIDEBAR_WIDTH = 70;
+const DEFAULT_SIDEBAR_WIDTH = 220;
 
 const App: React.FC = () => {
+  const { currentUser } = useAuth();
   const [currentView, setCurrentView] = useState<View>('library');
   const [editingPathId, setEditingPathId] = useState<string | null>(null);
   const [viewingPathId, setViewingPathId] = useState<string | null>(null);
-  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const isMobile = useIsMobile();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const style = document.createElement('style');
-    style.innerHTML = `
-      .no-scrollbar::-webkit-scrollbar {
-          display: none;
-      }
-      .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-      }
-    `;
-    document.head.appendChild(style);
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
+    // Reset view when user logs out
+    if (!currentUser) {
+      setCurrentView('library');
+      setEditingPathId(null);
+      setViewingPathId(null);
+    }
+  }, [currentUser]);
 
   const startResizing = useCallback((mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
@@ -42,7 +40,7 @@ const App: React.FC = () => {
 
     const doDrag = (mouseMoveEvent: MouseEvent) => {
       const newWidth = startWidth + mouseMoveEvent.clientX - startX;
-      const clampedWidth = Math.max(70, Math.min(newWidth, 220));
+      const clampedWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.min(newWidth, 220));
       setSidebarWidth(clampedWidth);
     };
 
@@ -55,6 +53,9 @@ const App: React.FC = () => {
     document.documentElement.addEventListener('mouseup', stopDrag, false);
   }, [sidebarWidth]);
   
+  const handleToggleSidebar = () => {
+    setSidebarWidth(prev => prev > MIN_SIDEBAR_WIDTH ? MIN_SIDEBAR_WIDTH : DEFAULT_SIDEBAR_WIDTH);
+  };
 
   const handlePathCreated = (pathId: string) => {
     setEditingPathId(pathId);
@@ -83,6 +84,10 @@ const App: React.FC = () => {
       setCurrentView('library');
   };
 
+  if (!currentUser) {
+    return <AuthView />;
+  }
+
   const renderView = () => {
     switch (currentView) {
       case 'create_initial':
@@ -106,37 +111,44 @@ const App: React.FC = () => {
         return null;
       case 'major':
         return <MajorPathView onEdit={handleEditPath} onChangeMajor={handleChangeMajor} isMobile={isMobile} />;
+      case 'profile':
+        return <ProfileView />;
       case 'library':
       default:
         return <LearningPathsView onEditPath={handleEditPath} onNewPath={() => setCurrentView('create_initial')} onViewPath={handleViewPath} />;
     }
   };
+  
+  const showMobileHeader = isMobile && currentView !== 'edit' && currentView !== 'view_path';
 
   return (
-    <div className="flex h-screen bg-brand-primary relative">
+    <div className="flex h-screen bg-brand-primary">
       <Sidebar 
         currentView={currentView} 
         setView={setCurrentView} 
         width={sidebarWidth} 
         onResizeStart={startResizing}
+        onToggleCollapse={handleToggleSidebar}
         isMobile={isMobile}
         isOpen={isMobileSidebarOpen}
         onClose={() => setIsMobileSidebarOpen(false)}
       />
       <div 
-        className="flex-grow transition-all duration-300 h-screen flex flex-col" 
+        className="flex-1 flex flex-col transition-all duration-300" 
         style={{ marginLeft: isMobile ? 0 : sidebarWidth }}
       >
-        {isMobile && (
-          <header className="flex-shrink-0 flex items-center justify-between p-4 h-20 bg-brand-primary border-b border-brand-accent">
-            <LogoFull />
-            <button 
-              onClick={() => setIsMobileSidebarOpen(true)} 
-              aria-label="Open navigation menu"
-              className="p-2"
-            >
-              <MenuIcon className="w-6 h-6 text-brand-text" />
-            </button>
+        {showMobileHeader && (
+          <header className="flex-shrink-0 flex items-center justify-between p-4 h-20 bg-brand-primary border-b border-brand-accent z-10">
+             <div className="flex items-center justify-between w-full">
+                <LogoFull />
+                <button 
+                  onClick={() => setIsMobileSidebarOpen(true)} 
+                  aria-label="Open navigation menu"
+                  className="p-2"
+                >
+                  <MenuIcon className="w-6 h-6 text-brand-text" />
+                </button>
+            </div>
           </header>
         )}
         <main className="flex-grow overflow-y-auto">

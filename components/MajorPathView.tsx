@@ -42,8 +42,12 @@ const MajorPathView: React.FC<MajorPathViewProps> = ({ onEdit, onChangeMajor, is
                 </button>
             </div>
         </header>
-        <main className="flex-grow flex items-start overflow-auto no-scrollbar">
-            <PathViewer path={majorPath} isMobile={isMobile} />
+        <main className="flex-grow flex flex-col min-h-0">
+            <div className="flex-grow relative">
+                <div className="absolute inset-0 flex items-start overflow-x-auto no-scrollbar">
+                    <PathViewer path={majorPath} isMobile={isMobile} />
+                </div>
+            </div>
         </main>
     </div>
   );
