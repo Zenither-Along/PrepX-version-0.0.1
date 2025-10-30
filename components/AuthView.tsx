@@ -94,7 +94,7 @@ const AuthView: React.FC = () => {
                 value={username}
                 onChange={(e) => handleUsernameChange(e.target.value)}
                 required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-gray-800 focus:border-gray-800 sm:text-sm bg-brand-primary text-brand-text"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-0 focus:border-gray-500 sm:text-sm bg-brand-primary text-brand-text"
                 aria-invalid={!!usernameError}
                 aria-describedby="username-error"
               />
@@ -111,7 +111,7 @@ const AuthView: React.FC = () => {
                   value={password}
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   required
-                  className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-gray-800 focus:border-gray-800 sm:text-sm bg-brand-primary text-brand-text"
+                  className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-0 focus:border-gray-500 sm:text-sm bg-brand-primary text-brand-text"
                   aria-invalid={!!passwordError}
                   aria-describedby="password-error"
                 />

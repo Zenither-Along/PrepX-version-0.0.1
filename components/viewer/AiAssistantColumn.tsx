@@ -1,156 +1,221 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from '@google/genai';
-import { SendIcon } from '../icons';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { GoogleGenAI, Chat } from '@google/genai';
+import { SendIcon, HistoryIcon, PlusIcon, TrashIcon, XIcon, ArrowLeftIcon, SparklesIcon } from '../icons';
+import { Message, ColumnChatHistory, ChatSession } from '../../types';
 
-interface Message {
-    role: 'user' | 'model';
-    content: string;
+interface AiAssistantColumnProps {
+    context: string;
+    chatHistory: ColumnChatHistory;
+    onChatHistoryChange: (newHistory: ColumnChatHistory) => void;
+    onClose: () => void;
 }
 
-export const AiAssistantColumn: React.FC<{ context: string }> = ({ context }) => {
-    const [history, setHistory] = useState<Message[]>([]);
+// Store chat instances in a map to maintain conversation history
+const chatInstances = new Map<string, Chat>();
+
+export const AiAssistantColumn: React.FC<AiAssistantColumnProps> = ({ context, chatHistory, onChatHistoryChange, onClose }) => {
     const [userInput, setUserInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [showSuggestions, setShowSuggestions] = useState(true);
+    const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
+    
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const activeSession = chatHistory.sessions.find(s => s.id === chatHistory.activeSessionId);
+
+    const scrollToBottom = useCallback(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, []);
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [activeSession, scrollToBottom]);
+
+    useEffect(() => {
+      // Focus the textarea when the component mounts or the active session changes
+      textareaRef.current?.focus();
+    }, [chatHistory.activeSessionId]);
+
+    const handleSend = async (message: string) => {
+        if (isLoading || !message.trim() || !activeSession) return;
     
-    const initialGreeting: Message = { role: 'model', content: "Hello! I'm your AI assistant for this topic. How can I help you? You can ask me to summarize, explain a concept, or create practice questions." };
-    const messagesForDisplay = [initialGreeting, ...history];
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messagesForDisplay, isLoading]);
-
-    useEffect(() => {
-        if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto';
-            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-        }
-    }, [userInput]);
-
-    const handleSendMessage = async (messageText: string) => {
-        if (!messageText.trim() || isLoading) return;
-
-        const newUserMessage: Message = { role: 'user', content: messageText };
-        const currentHistory = [...history, newUserMessage];
-        setHistory(currentHistory);
-        
-        setUserInput('');
         setIsLoading(true);
         setError(null);
-        setShowSuggestions(true); // Re-show suggestions after sending
+    
+        const newUserMessage: Message = { role: 'user', content: message };
+        const updatedMessages: Message[] = [...activeSession.messages, newUserMessage];
         
-        const historyForApi = currentHistory.map(msg => ({
-            role: msg.role,
-            parts: [{ text: msg.content }]
-        }));
+        // Optimistic update of UI
+        const updatedSession: ChatSession = { ...activeSession, messages: updatedMessages };
+        const newSessions = chatHistory.sessions.map(s => s.id === updatedSession.id ? updatedSession : s);
+        onChatHistoryChange({ ...chatHistory, sessions: newSessions });
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            let chat = chatInstances.get(activeSession.id);
+            if (!chat) {
+                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                chat = ai.chats.create({
+                  model: 'gemini-2.5-flash',
+                  history: [
+                      ...(activeSession?.messages.map(msg => ({
+                          role: msg.role,
+                          parts: [{ text: msg.content }]
+                      })) || [])
+                  ],
+                  config: {
+                      systemInstruction: `You are an expert tutor. Your goal is to help me understand the following content. Be concise and helpful. Here is the content:\n\n---\n\n${context}`
+                  }
+                });
+                chatInstances.set(activeSession.id, chat);
+            }
+    
+            const response = await chat.sendMessage({ message });
+            const text = response.text;
+    
+            const newModelMessage: Message = { role: 'model', content: text };
+            
+            const finalSession: ChatSession = { ...activeSession, messages: [...updatedMessages, newModelMessage] };
+            const finalSessions = chatHistory.sessions.map(s => s.id === finalSession.id ? finalSession : s);
+            onChatHistoryChange({ ...chatHistory, sessions: finalSessions });
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: historyForApi,
-                config: {
-                    systemInstruction: `You are a helpful learning assistant called PrepX AI. The user is studying a specific topic. Here is the content for the topic they are currently focused on:\n\n---\n\n${context}\n\n---\n\nYour primary role is to help them understand this material better. Answer their questions based *only* on the provided content. If the question is outside the scope of the material, gently state that the question is beyond the provided context and guide them back to the topic. Format your answers clearly using markdown (e.g., bullet points with *, bold with **). Be concise and encouraging.`
-                }
-            });
-
-            const modelResponse: Message = { role: 'model', content: response.text };
-            setHistory(prev => [...prev, modelResponse]);
-
-        } catch (err) {
-            console.error("Gemini API call failed", err);
-            const errorText = "Sorry, I couldn't get a response. Please check your connection or API key and try again.";
-            setError(errorText);
+        } catch (err: any) {
+            console.error("Gemini API error:", err);
+            setError("Sorry, I encountered an error. Please try again.");
+            // Revert optimistic update on error by removing the user's message
+             onChatHistoryChange({ ...chatHistory, sessions: newSessions.map(s => s.id === activeSession.id ? { ...s, messages: activeSession.messages } : s) });
         } finally {
             setIsLoading(false);
         }
     };
-    
-    const suggestedPrompts = [
-        "Summarize this topic",
-        "Explain the key concepts simply",
-        "Create 3 practice questions",
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        handleSend(userInput);
+        setUserInput('');
+    };
+
+    const handleNewChat = () => {
+        const newSessionId = crypto.randomUUID();
+        const newSession: ChatSession = { id: newSessionId, messages: [], createdAt: new Date().toISOString() };
+        onChatHistoryChange({
+            sessions: [newSession, ...chatHistory.sessions],
+            activeSessionId: newSessionId,
+        });
+        setIsHistoryPanelOpen(false);
+    };
+
+    const handleSelectSession = (sessionId: string) => {
+        onChatHistoryChange({ ...chatHistory, activeSessionId: sessionId });
+        setIsHistoryPanelOpen(false);
+    };
+
+    const handleDeleteSession = (e: React.MouseEvent, sessionId: string) => {
+        e.stopPropagation();
+        const newSessions = chatHistory.sessions.filter(s => s.id !== sessionId);
+        chatInstances.delete(sessionId);
+        
+        // If we delete the active session, make the next one active
+        let newActiveId = chatHistory.activeSessionId;
+        if (newActiveId === sessionId) {
+            newActiveId = newSessions[0]?.id || null;
+        }
+
+        onChatHistoryChange({
+            sessions: newSessions,
+            activeSessionId: newActiveId,
+        });
+    };
+
+    const suggestions = [
+      "Explain this topic in simple terms.",
+      "Summarize the key points.",
+      "Give me a real-world example.",
+      "Quiz me on this content."
     ];
 
     return (
-        <div className="h-full w-full flex flex-col bg-brand-primary">
-            <div className="flex-grow p-4 space-y-4 overflow-y-auto no-scrollbar">
-                {messagesForDisplay.map((msg, index) => (
-                    <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-md lg:max-w-lg px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-brand-text text-brand-primary rounded-br-none' : 'bg-brand-secondary text-brand-text rounded-bl-none'}`}>
-                            <p className="whitespace-pre-wrap">{msg.content}</p>
-                        </div>
-                    </div>
-                ))}
-                {isLoading && (
-                     <div className="flex justify-start">
-                         <div className="max-w-md lg:max-w-lg px-4 py-3 rounded-2xl bg-brand-secondary text-brand-text rounded-bl-none flex items-center">
-                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-	                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s] mx-1"></div>
-	                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                        </div>
-                    </div>
-                )}
-                {error && (
-                    <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded-lg text-sm">{error}</div>
-                )}
-                <div ref={messagesEndRef} />
-            </div>
-
-            <div className="flex-shrink-0 p-2 border-t border-brand-accent bg-brand-primary">
-                 {showSuggestions && (
-                    <div className="flex gap-2 justify-center mb-2 px-2">
-                        {suggestedPrompts.map(prompt => (
-                            <button 
-                                key={prompt}
-                                onClick={() => handleSendMessage(prompt)}
-                                disabled={isLoading}
-                                className="px-3 py-1 text-xs bg-brand-secondary border border-gray-300 rounded-full hover:bg-brand-accent disabled:opacity-50"
-                            >
-                                {prompt}
-                            </button>
-                        ))}
-                    </div>
-                 )}
-                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(userInput); }} className="flex items-end gap-2 p-2">
-                    <textarea
-                        ref={textareaRef}
-                        value={userInput}
-                        onChange={(e) => {
-                            setUserInput(e.target.value);
-                            if (e.target.value) {
-                                setShowSuggestions(false);
-                            }
-                        }}
-                        onBlur={() => {
-                            if (!userInput.trim()) {
-                                setShowSuggestions(true);
-                            }
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSendMessage(userInput);
-                            }
-                        }}
-                        placeholder="Ask a question..."
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 outline-none resize-none max-h-32 overflow-y-auto no-scrollbar"
-                        rows={1}
-                        disabled={isLoading}
-                    />
-                    <button 
-                        type="submit" 
-                        disabled={isLoading || !userInput.trim()} 
-                        className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-brand-text text-brand-primary rounded-full disabled:bg-gray-400 transition-colors"
-                        aria-label="Send message"
-                    >
-                        <SendIcon className="w-5 h-5" />
+        <div className="w-full h-full flex flex-col bg-brand-primary">
+            <header className="flex-shrink-0 flex items-center justify-between p-4 h-20 border-b border-brand-accent">
+                <div className="flex items-center gap-2">
+                    <button onClick={onClose} className="p-2 hover:bg-brand-secondary rounded-full md:hidden">
+                        <ArrowLeftIcon className="w-5 h-5" />
                     </button>
-                </form>
+                    <h2 className="font-bold text-lg">AI Assistant</h2>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={handleNewChat} title="New Chat" className="p-2 hover:bg-brand-secondary rounded-full"><PlusIcon className="w-5 h-5" /></button>
+                    <button onClick={() => setIsHistoryPanelOpen(p => !p)} title="Chat History" className="p-2 hover:bg-brand-secondary rounded-full"><HistoryIcon className="w-5 h-5" /></button>
+                </div>
+            </header>
+
+            <div className="flex-grow flex relative min-h-0">
+                <div className="flex-grow flex flex-col">
+                    <div className="flex-grow overflow-y-auto p-4 space-y-4">
+                        {activeSession?.messages.map((msg, index) => (
+                            <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-brand-text text-brand-primary rounded-br-lg' : 'bg-brand-secondary text-brand-text rounded-bl-lg'}`}>
+                                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                                </div>
+                            </div>
+                        ))}
+                        {activeSession?.messages.length === 0 && (
+                          <div className="text-center py-8">
+                              <SparklesIcon className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+                              <h3 className="text-lg font-semibold text-gray-800">How can I help?</h3>
+                              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2 max-w-lg mx-auto">
+                                  {suggestions.map(s => (
+                                      <button key={s} onClick={() => handleSend(s)} className="p-3 bg-brand-secondary hover:bg-brand-accent text-sm text-left rounded-lg text-gray-700">{s}</button>
+                                  ))}
+                              </div>
+                          </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+                    {isLoading && <p className="text-sm text-center text-gray-500 p-2">AI is thinking...</p>}
+                    {error && <p className="text-sm text-center text-red-500 p-2">{error}</p>}
+
+                    <div className="flex-shrink-0 p-4 border-t border-brand-accent">
+                        <form onSubmit={handleSubmit} className="flex items-center gap-2 bg-brand-secondary rounded-lg p-2">
+                            <textarea
+                                ref={textareaRef}
+                                value={userInput}
+                                onChange={(e) => setUserInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSubmit(e);
+                                    }
+                                }}
+                                placeholder="Ask a question..."
+                                className="w-full border-none bg-transparent resize-none focus:ring-0 p-2 text-brand-text placeholder-gray-500"
+                                rows={1}
+                            />
+                            <button type="submit" disabled={isLoading || !userInput.trim()} className="p-2 rounded-full bg-brand-text text-brand-primary disabled:bg-gray-400">
+                                <SendIcon className="w-5 h-5" />
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {isHistoryPanelOpen && (
+                    <div className="absolute top-0 right-0 h-full w-full max-w-sm bg-brand-primary border-l border-brand-accent z-10 flex flex-col shadow-lg">
+                        <div className="flex items-center justify-between p-4 border-b border-brand-accent">
+                            <h3 className="font-bold">Chat History</h3>
+                            <button onClick={() => setIsHistoryPanelOpen(false)} className="p-2 rounded-full hover:bg-brand-secondary"><XIcon className="w-5 h-5"/></button>
+                        </div>
+                        <div className="flex-grow overflow-y-auto">
+                            {chatHistory.sessions.map(session => (
+                                <div key={session.id} onClick={() => handleSelectSession(session.id)} className={`flex justify-between items-start p-4 border-b border-brand-accent hover:bg-brand-secondary cursor-pointer ${session.id === activeSession?.id ? 'bg-brand-accent' : ''}`}>
+                                    <div className="flex-grow min-w-0">
+                                        <p className="font-medium truncate">{session.messages[0]?.content || 'New Chat'}</p>
+                                        <p className="text-xs text-gray-500">{new Date(session.createdAt).toLocaleString()}</p>
+                                    </div>
+                                    <button onClick={(e) => handleDeleteSession(e, session.id)} className="p-1 text-gray-400 hover:text-red-600 ml-2 flex-shrink-0"><TrashIcon className="w-4 h-4" /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -77,7 +77,7 @@ const ProfileView: React.FC = () => {
                                             value={currentPassword}
                                             onChange={(e) => setCurrentPassword(e.target.value)}
                                             required
-                                            className="block w-full px-3 py-2 pr-10 border border-brand-accent rounded-md shadow-sm bg-brand-primary text-brand-text focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-gray-800"
+                                            className="block w-full px-3 py-2 pr-10 border border-brand-accent rounded-md shadow-sm bg-brand-primary text-brand-text focus:outline-none focus:ring-0 focus:border-gray-500"
                                         />
                                         <button type="button" onClick={() => setIsCurrentPasswordVisible(p => !p)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500">
                                             {isCurrentPasswordVisible ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
@@ -92,7 +92,7 @@ const ProfileView: React.FC = () => {
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
                                             required
-                                            className="block w-full px-3 py-2 pr-10 border border-brand-accent rounded-md shadow-sm bg-brand-primary text-brand-text focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-gray-800"
+                                            className="block w-full px-3 py-2 pr-10 border border-brand-accent rounded-md shadow-sm bg-brand-primary text-brand-text focus:outline-none focus:ring-0 focus:border-gray-500"
                                         />
                                         <button type="button" onClick={() => setIsNewPasswordVisible(p => !p)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500">
                                             {isNewPasswordVisible ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
@@ -106,7 +106,7 @@ const ProfileView: React.FC = () => {
                                         value={confirmPassword}
                                         onChange={(e) => setConfirmPassword(e.target.value)}
                                         required
-                                        className="mt-1 block w-full px-3 py-2 border border-brand-accent rounded-md shadow-sm bg-brand-primary text-brand-text focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-gray-800"
+                                        className="mt-1 block w-full px-3 py-2 border border-brand-accent rounded-md shadow-sm bg-brand-primary text-brand-text focus:outline-none focus:ring-0 focus:border-gray-500"
                                     />
                                 </div>
                             </div>

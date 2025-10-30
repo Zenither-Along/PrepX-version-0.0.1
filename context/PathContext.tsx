@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { LearningPath, PathContextType, ColumnType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import * as idb from './idb';
+import { getSelfLearningPath, SELF_LEARNING_PATH_ID } from '../prebuilt/selfLearningPath';
 
 export const PathContext = createContext<PathContextType | undefined>(undefined);
 
@@ -24,7 +25,16 @@ export const PathProvider: React.FC<PathProviderProps> = ({ children }) => {
       // For this app, we'll assume a single user context.
       if (currentUser) {
         try {
-          const userPaths = await idb.getAllPaths();
+          let userPaths = await idb.getAllPaths();
+          
+          // Check if the pre-built path exists, and add it if it doesn't.
+          const prebuiltPathExists = userPaths.some(p => p.id === SELF_LEARNING_PATH_ID);
+          if (!prebuiltPathExists) {
+            const prebuiltPath = getSelfLearningPath();
+            await idb.putPath(prebuiltPath);
+            userPaths.unshift(prebuiltPath); // Add it to the start of the list for visibility
+          }
+
           setPaths(userPaths);
           setMajorPath(userPaths.find(p => p.isMajor) || null);
         } catch (e) {
@@ -134,6 +144,24 @@ export const PathProvider: React.FC<PathProviderProps> = ({ children }) => {
     }
   };
 
+  const removeMajorPath = async () => {
+    const currentMajorPath = paths.find(p => p.isMajor);
+    if (!currentMajorPath) return;
+
+    try {
+        await idb.putPath({ ...currentMajorPath, isMajor: false });
+
+        const newPaths = paths.map(p => 
+            p.id === currentMajorPath.id ? { ...p, isMajor: false } : p
+        );
+        setPaths(newPaths);
+        setMajorPath(null);
+    } catch (e) {
+      console.error("Failed to remove major path", e);
+      setError("Could not update the major path. The database may be unavailable.");
+    }
+  };
+
   const value: PathContextType = {
     paths,
     majorPath,
@@ -143,7 +171,8 @@ export const PathProvider: React.FC<PathProviderProps> = ({ children }) => {
     getPathById,
     updatePath,
     deletePath,
-    setMajorPath: handleSetMajorPath
+    setMajorPath: handleSetMajorPath,
+    removeMajorPath,
   };
 
   return <PathContext.Provider value={value}>{children}</PathContext.Provider>;

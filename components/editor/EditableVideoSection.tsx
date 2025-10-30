@@ -132,7 +132,7 @@ export const EditableVideoSection: React.FC<{
                     onChange={e => handleUrlChange(e.target.value)}
                     onClick={e => e.stopPropagation()}
                     placeholder="Video URL (YouTube, Vimeo)" 
-                    className="w-full p-2 border border-gray-300 rounded-md bg-brand-primary" 
+                    className="w-full p-2 border border-gray-300 rounded-md bg-brand-primary focus:ring-0 focus:outline-none" 
                 />
             ) : (
                 <div className="w-full" onClick={e => e.stopPropagation()}>

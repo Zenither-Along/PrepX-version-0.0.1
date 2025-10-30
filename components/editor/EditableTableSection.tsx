@@ -73,7 +73,7 @@ const TableEditorModal: React.FC<{
                                     <tr key={rowIndex}>
                                         {row.map((cell, colIndex) => (
                                             <td key={colIndex} className="border border-gray-300 p-0 align-top">
-                                                <AutoSizingTextArea value={cell} onChange={(val) => handleCellChange(rowIndex, colIndex, val)} className="w-full h-full bg-transparent p-2 focus:ring-1 focus:ring-gray-800 focus:outline-none" rows={1} />
+                                                <AutoSizingTextArea value={cell} onChange={(val) => handleCellChange(rowIndex, colIndex, val)} className="w-full h-full bg-transparent p-2 text-brand-text focus:ring-0 focus:outline-none" rows={1} />
                                             </td>
                                         ))}
                                         <td className="p-1 w-8 text-center border-t border-r border-b border-gray-300 border-l-transparent align-middle bg-gray-50">
@@ -202,7 +202,7 @@ export const EditableTableSection: React.FC<EditableTableSectionProps> = ({ cont
                             <tr key={rowIndex}>
                                 {row.map((cell, colIndex) => (
                                     <td key={colIndex} className="border border-gray-300 p-0 align-top" onClick={e => e.stopPropagation()}>
-                                        <AutoSizingTextArea value={cell} onChange={(val) => handleCellChange(rowIndex, colIndex, val)} className="w-full h-full bg-transparent p-2 focus:ring-1 focus:ring-gray-800 focus:outline-none" rows={1} />
+                                        <AutoSizingTextArea value={cell} onChange={(val) => handleCellChange(rowIndex, colIndex, val)} className="w-full h-full bg-transparent p-2 text-brand-text focus:ring-0 focus:outline-none" rows={1} />
                                     </td>
                                 ))}
                                 <td className="p-1 w-8 text-center border-t border-r border-b border-gray-300 border-l-transparent align-middle bg-gray-50">

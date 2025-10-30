@@ -10,7 +10,7 @@ interface LearningPathsViewProps {
 }
 
 const LearningPathsView: React.FC<LearningPathsViewProps> = ({ onEditPath, onNewPath, onViewPath }) => {
-  const { paths, deletePath, setMajorPath } = usePaths();
+  const { paths, deletePath, setMajorPath, removeMajorPath } = usePaths();
   const [searchTerm, setSearchTerm] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [pathToDelete, setPathToDelete] = useState<LearningPath | null>(null);
@@ -46,9 +46,15 @@ const LearningPathsView: React.FC<LearningPathsViewProps> = ({ onEditPath, onNew
                   <button onClick={() => { onEditPath(path.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-2 text-sm text-brand-text hover:bg-brand-secondary flex items-center">
                     <EditIcon className="w-4 h-4 mr-2" /> Edit
                   </button>
-                  <button onClick={() => { setMajorPath(path.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-2 text-sm text-brand-text hover:bg-brand-secondary flex items-center">
-                    <StarIcon className="w-4 h-4 mr-2" /> Set as Major
-                  </button>
+                  {path.isMajor ? (
+                    <button onClick={() => { removeMajorPath(); setOpenMenuId(null); }} className="w-full text-left px-4 py-2 text-sm text-brand-text hover:bg-brand-secondary flex items-center">
+                      <StarIcon className="w-4 h-4 mr-2" /> Remove from Major
+                    </button>
+                  ) : (
+                    <button onClick={() => { setMajorPath(path.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-2 text-sm text-brand-text hover:bg-brand-secondary flex items-center">
+                      <StarIcon className="w-4 h-4 mr-2" /> Set as Major
+                    </button>
+                  )}
                   <div className="border-t border-brand-accent my-1"></div>
                   <button onClick={() => { setPathToDelete(path); setOpenMenuId(null); }} className="w-full text-left px-4 py-2 text-sm text-brand-text hover:bg-brand-secondary flex items-center">
                     <TrashIcon className="w-4 h-4 mr-2" /> Delete
@@ -77,7 +83,7 @@ const LearningPathsView: React.FC<LearningPathsViewProps> = ({ onEditPath, onNew
               placeholder="Search paths..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-brand-primary text-brand-text w-full"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:outline-none bg-brand-primary text-brand-text w-full"
             />
           </div>
           <button onClick={onNewPath} className="flex items-center justify-center px-4 py-2 bg-brand-text text-brand-primary font-semibold rounded-lg shadow-sm hover:bg-gray-800 transition-colors w-full sm:w-auto">

@@ -1,3 +1,4 @@
+// FIX: Removed self-import which was causing declaration conflicts.
 export type View = 'library' | 'major' | 'create_initial' | 'edit' | 'view_path' | 'profile';
 
 export enum ColumnType {
@@ -40,7 +41,7 @@ export interface PathColumn {
 }
 
 export interface LearningPath {
-  id: string;
+  id:string;
   title: string;
   columns: PathColumn[];
   createdAt: string;
@@ -72,4 +73,21 @@ export interface PathContextType {
   updatePath: (updatedPath: LearningPath) => void;
   deletePath: (id: string) => void;
   setMajorPath: (id: string) => void;
+  removeMajorPath: () => void;
+}
+
+export interface Message {
+    role: 'user' | 'model';
+    content: string;
+}
+
+export interface ChatSession {
+    id: string;
+    messages: Message[];
+    createdAt: string;
+}
+
+export interface ColumnChatHistory {
+    sessions: ChatSession[];
+    activeSessionId: string | null;
 }
