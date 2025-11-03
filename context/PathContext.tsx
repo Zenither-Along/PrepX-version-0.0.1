@@ -4,6 +4,15 @@ import { useAuth } from '../hooks/useAuth';
 import * as idb from './idb';
 import { getSelfLearningPath, SELF_LEARNING_PATH_ID } from '../prebuilt/selfLearningPath';
 
+// Generate a UUID that works across all browsers including mobile
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 export const PathContext = createContext<PathContextType | undefined>(undefined);
 
 interface PathProviderProps {
@@ -32,14 +41,17 @@ export const PathProvider: React.FC<PathProviderProps> = ({ children }) => {
           if (!prebuiltPathExists) {
             const prebuiltPath = getSelfLearningPath();
             await idb.putPath(prebuiltPath);
-            userPaths.unshift(prebuiltPath); // Add it to the start of the list for visibility
+            userPaths = [prebuiltPath, ...userPaths]; // Add it to the start of the list for visibility
           }
 
           setPaths(userPaths);
           setMajorPath(userPaths.find(p => p.isMajor) || null);
         } catch (e) {
           console.error("Failed to load paths from IndexedDB", e);
-          setError("Could not load your learning paths. Your browser may not support the necessary storage APIs.");
+          // Add the prebuilt path even if there's an error
+          const prebuiltPath = getSelfLearningPath();
+          setPaths([prebuiltPath]);
+          setError("Could not load all your learning paths. Some features may be limited.");
         }
       } else {
         setPaths([]);
@@ -54,12 +66,12 @@ export const PathProvider: React.FC<PathProviderProps> = ({ children }) => {
   const addPath = async (title: string, callback: (newPath: LearningPath) => void) => {
     const isFirstPath = paths.length === 0;
     const newPath: LearningPath = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       title,
       isMajor: isFirstPath,
       createdAt: new Date().toISOString(),
       columns: [{
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         title,
         type: ColumnType.BRANCH,
         parentItemId: null,

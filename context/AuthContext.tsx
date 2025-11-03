@@ -66,7 +66,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (users.some(u => u.username === username)) {
       return { success: false, message: 'This username is already taken. Please choose a different one.' };
     }
-    const newUser: SimUser = { id: crypto.randomUUID(), username, password };
+    // Generate a UUID that works across all browsers including mobile
+    const generateUUID = () => {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    };
+    
+    const newUser: SimUser = { id: generateUUID(), username, password };
     setUsers(prev => [...prev, newUser]);
     
     const userToStore = { id: newUser.id, username: newUser.username };
