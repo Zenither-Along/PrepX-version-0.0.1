@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { PathProvider } from './context/PathContext';
 import { AuthProvider } from './context/AuthContext';
+import './src/index.css'; // Import Tailwind CSS
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
